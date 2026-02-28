@@ -101,7 +101,9 @@ Do not:
 For critical security abuse or threats, contact:
 
 ```
-security@lbfgs-solver-course.org
+
+https://t.me/RuslanSenatorov
+
 ```
 
 ---

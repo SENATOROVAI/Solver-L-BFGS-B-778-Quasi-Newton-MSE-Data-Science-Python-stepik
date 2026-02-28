@@ -1,37 +1,304 @@
 # https://stepik.org/a/272346
 
-2 Linear regression with the LBFGS (Limited-memory Broyden-Fletcher-Goldfarb-Shanno) solver method is a numerical optimization method used to find the minimum of an objective function. It is a gradient descent algorithm that uses an approximation of the Hessian matrix to minimize the function. 
+# Limited-Memory BFGS (L-BFGS) — A Research-Oriented Course
 
-Вот **реалистичный роадмап** по изучению алгоритма **L-BFGS-B** с нуля (2025–2026 годы). Предполагается, что у вас есть базовые знания математики вуза 1–2 курса и вы умеете программировать на Python.
+> A mathematically rigorous course on the **Limited-memory Broyden–Fletcher–Goldfarb–Shanno (L-BFGS)** algorithm, covering theoretical foundations, convergence properties, numerical stability, and large-scale implementations.
 
-| №  | Этап                              | Что изучить / понять глубоко                              | Время (при 8–15 ч/нед) | Лучшие ресурсы (2025–2026)                                                                 | Практика / чек-поинт                                      |
-|----|-----------------------------------|-------------------------------------------------------------|--------------------------|---------------------------------------------------------------------------------------------|------------------------------------------------------------|
-| 1  | Базовая математика оптимизации   | Градиент, гессиан, квадратичная форма, выпуклость, градиентный спуск | 1–2 недели              | • 3Blue1Brown — Essence of calculus + Linear algebra<br>• Boyd & Vandenberghe — Convex Optimization (главы 2–3, 9) | Написать градиентный спуск на Rosenbrock, логировать путь |
-| 2  | Градиентный спуск и его проблемы | Зигзаг, осцилляции, learning rate, momentum, Nesterov     | 1 неделя                | • Stanford CS231n лекция «Optimization» (YouTube)<br>• fast.ai Practical Deep Learning (часть про оптимизаторы) | Сравнить GD, Momentum, Nesterov на плохо обусловленной квадратичной функции |
-| 3  | Метод Ньютона и его ограничения  | Классический Newton, Hessian, Cholesky, damping           | 1–1.5 недели            | • Nocedal & Wright «Numerical Optimization» — главы 3, 5, 6 (самые важные)<br>• YouTube: «Understanding BFGS» от aria42 | Реализовать damped Newton на 2–5-мерной задаче            |
-| 4  | Quasi-Newton методы (общий взгляд) | Secant condition, DFP, BFGS формула обновления             | 1 неделя                | • Nocedal & Wright — глава 6 (6.1–6.3)<br>• Wikipedia → BFGS → Limited-memory BFGS       | Понять, почему BFGS лучше DFP и сохраняет положительную определённость |
-| 5  | BFGS подробно                    | Две формы (B и H), two-loop recursion, Wolfe conditions   | 1.5–2 недели            | • Nocedal & Wright — 6.4–6.6, 8.2<br>• aria42 blog «Understanding L-BFGS» (2014, но всё ещё лучший)<br>• YouTube: «BFGS & L-BFGS: The Algorithms Behind Modern ML» | Реализовать классический BFGS (с матрицей Hₖ) на Rosenbrock |
-| 6  | L-BFGS (Limited Memory)          | Two-loop recursion, H₀ = γI, хранение s и y векторов      | 2–3 недели              | • Nocedal & Wright — 7.2<br>• оригинальная статья Liu & Nocedal 1989<br>• Medium: «Implementing L-BFGS from scratch» Abhijit Mondal | Написать L-BFGS (unconstrained) — two-loop matvec без матриц |
-| 7  | L-BFGS-B (box constraints)       | Projected gradient, Cauchy point, subspace minimization, active set | 2–4 недели              | • Оригинальная статья Zhu, Byrd, Nocedal 1997<br>• Fortran код на сайте Nocedal (для понимания логики)<br>• scipy.optimize._minimize_lbfgsb.py (читать!) | Добавить простые box constraints к своему L-BFGS → L-BFGS-B |
-| 8  | Практика и отладка               | Line search (strong Wolfe), numerical stability, restart   | 2–4 недели              | • scipy.optimize код + тесты<br>• libLBFGS / L-BFGS++ / Optim.jl реализации | Сравнить свой L-BFGS-B с scipy на 5–10 тестовых функциях (CUTEst, etc.) |
-| 9  | Современное применение и нюансы  | L-BFGS в PyTorch / JAX, Full-batch vs mini-batch, variance reduction, trust-region гибриды | 2–3 недели              | • PyTorch LBFGS (torch.optim)<br>• JAX — optax / jaxopt<br>• статьи 2020–2025 про L-BFGS в large-scale ML | Запустить L-BFGS на logistic regression / небольшой нейросети (full-batch) |
-| 10 | Глубокое понимание               | Доказательства сходимости, суперлинейная скорость, preconditioning | +∞                      | • Nocedal & Wright полностью<br>• «Numerical Optimization» + статьи по trust-region / adaptive curvature | Написать объяснение L-BFGS-B на 5–7 страниц как будто для статьи |
+---
 
-### Рекомендуемый порядок ресурсов (самый эффективный путь 2025–2026)
+## Abstract
 
-1. 3Blue1Brown + CS231n Optimization lecture → быстрый старт
-2. Nocedal & Wright «Numerical Optimization» — главы 2 → 3 → 5 → 6 → 7 → 8.2
-3. aria42 blog «Understanding L-BFGS» + Medium Abhijit Mondal
-4. Исходный код scipy.optimize L-BFGS-B → самый честный способ понять детали
-5. Оригинальные статьи (Liu-Nocedal 1989 + Zhu-Byrd-Nocedal 1997)
-6. Реализации на GitHub: smrfeld/l_bfgs_tutorial, L-BFGS++, jaxopt
+The Limited-memory BFGS (L-BFGS) method is a quasi-Newton optimization algorithm designed for large-scale unconstrained and box-constrained smooth optimization problems. It achieves superlinear convergence under standard assumptions while requiring only linear memory in the number of variables.
 
-### Примерный таймлайн (очень усреднённый)
+This course presents:
 
-- 0–6 недель  → уверенное понимание до BFGS
-- 6–12 недель → L-BFGS (unconstrained) работает у вас с нуля
-- 12–20 недель → L-BFGS-B (с box constraints) более-менее понятен и частично реализован
-- 20–30+ недель → глубокое понимание + эксперименты в современных фреймворках
+- A full derivation of the BFGS update from the secant condition  
+- Proof of positive definiteness preservation  
+- Two-loop recursion derivation for L-BFGS  
+- Wolfe line-search theory  
+- Global convergence analysis  
+- Practical implementation details (including L-BFGS-B)
 
-Удачи!  
-Самое сложное — не код, а **интуиция**, почему two-loop recursion действительно приближает Hₖ без хранения матрицы. Именно на этом большинство людей «застревает». Поэтому рисуйте много картинок с эллипсами уровней модели и реальной функции.
+The treatment follows the theoretical framework established in:
+
+- *Numerical Optimization*  
+- *Convex Optimization*
+
+---
+
+## Scope
+
+We study smooth optimization problems of the form:
+
+$$
+\min_{x \in \mathbb{R}^n} f(x)
+$$
+
+where:
+
+- $f \in C^1$ (continuously differentiable),
+- $\nabla f$ is Lipschitz continuous,
+- optionally $f$ is strongly convex.
+
+Extensions to box constraints:
+
+$$
+\min_{l \le x \le u} f(x)
+$$
+
+are treated via the L-BFGS-B framework as implemented in:
+
+- SciPy
+
+---
+
+## Theoretical Contributions Covered
+
+### 1. From Newton to Quasi-Newton
+
+- Second-order Taylor approximation  
+- Newton direction  
+- Limitations of exact Hessian computation  
+- Motivation for Hessian approximation  
+
+---
+
+### 2. Secant Condition
+
+We derive the quasi-Newton equation:
+
+$$
+B_{k+1}s_k = y_k
+$$
+
+where:
+
+$$
+s_k = x_{k+1} - x_k, \qquad
+y_k = \nabla f(x_{k+1}) - \nabla f(x_k)
+$$
+
+We show:
+
+- Why the update must satisfy symmetry  
+- Why positive definiteness requires $y_k^T s_k > 0$  
+- How the BFGS rank-two update arises from minimal correction principles  
+
+---
+
+### 3. BFGS Update
+
+Derivation:
+
+$$
+H_{k+1} =
+\left(I - \rho_k s_k y_k^T \right)
+H_k
+\left(I - \rho_k y_k s_k^T \right)
++
+\rho_k s_k s_k^T
+$$
+
+with:
+
+$$
+\rho_k = \frac{1}{y_k^T s_k}
+$$
+
+We prove:
+
+- Symmetry preservation  
+- Positive definiteness preservation  
+- Superlinear convergence under standard assumptions  
+
+---
+
+### 4. Limited-Memory Formulation
+
+For large $n$, storing $H_k \in \mathbb{R}^{n \times n}$ is infeasible.
+
+L-BFGS stores only the last $m$ curvature pairs:
+
+$$
+\{(s_i, y_i)\}_{i=k-m}^{k-1}
+$$
+
+The two-loop recursion computes:
+
+$$
+p_k = -H_k \nabla f(x_k)
+$$
+
+without forming $H_k$ explicitly.
+
+Memory complexity:
+
+$$
+O(nm)
+$$
+
+Time complexity per iteration:
+
+$$
+O(nm)
+$$
+
+---
+
+### 5. Line Search Theory
+
+We provide formal treatment of:
+
+- Weak Wolfe conditions  
+- Strong Wolfe conditions  
+- Curvature condition  
+- Global convergence theorems  
+
+Under Wolfe conditions:
+
+$$
+y_k^T s_k > 0
+$$
+
+which ensures stability of the BFGS update.
+
+---
+
+### 6. Convergence Results
+
+Under:
+
+- Lipschitz continuous gradient  
+- Strong convexity  
+- Wolfe line search  
+
+BFGS and L-BFGS achieve:
+
+- Global convergence  
+- Local superlinear convergence  
+
+We discuss:
+
+- Failure cases in nonconvex problems  
+- Saddle point behavior  
+- Curvature degeneracy  
+
+---
+
+## Numerical Implementation
+
+The repository contains:
+
+- Pure Python implementation  
+- NumPy-based vectorized routines  
+- Explicit two-loop recursion  
+- Wolfe line-search implementation  
+- L-BFGS-B box constraint handling  
+
+Reference comparison with:
+
+- SciPy  
+- Original Fortran L-BFGS-B implementation by Nocedal et al.
+
+---
+
+## Repository Structure
+
+```
+
+lbfgs-research/
+│
+├── theory/
+│   ├── newton_method.md
+│   ├── secant_condition.md
+│   ├── bfgs_proof.md
+│   ├── lbfgs_two_loop.md
+│   ├── wolfe_conditions.md
+│   └── convergence_analysis.md
+│
+├── implementation/
+│   ├── lbfgs.py
+│   ├── line_search.py
+│   ├── lbfgsb.py
+│   └── utils.py
+│
+├── experiments/
+│   ├── quadratic_tests.ipynb
+│   ├── logistic_regression.ipynb
+│   └── large_scale_benchmark.ipynb
+│
+└── README.md
+
+````
+
+---
+
+## Experimental Evaluation
+
+We benchmark:
+
+- Quadratic functions (known Hessian)  
+- Ill-conditioned problems  
+- Logistic regression  
+- High-dimensional synthetic datasets  
+
+Metrics:
+
+- Iteration count  
+- Gradient norm decay  
+- Function value reduction  
+- Wall-clock time  
+
+Comparisons include:
+
+- Gradient Descent  
+- Newton’s Method  
+- Conjugate Gradient  
+
+---
+
+## Prerequisites
+
+- Linear algebra (spectral decomposition, positive definiteness)  
+- Multivariable calculus  
+- Numerical optimization theory  
+- Familiarity with quasi-Newton methods  
+
+---
+
+## Research Applications
+
+L-BFGS is widely used in:
+
+- Statistical estimation  
+- Maximum likelihood problems  
+- Inverse problems  
+- Scientific computing  
+- Large-scale machine learning  
+
+Framework adoption includes:
+
+- SciPy  
+- PyTorch  
+- TensorFlow  
+
+---
+
+## Citation
+
+If you use this repository for academic or research purposes, please cite:
+
+```bibtex
+@misc{lbfgs_course,
+  author = {Ruslan Senatorov},
+  title  = {L-BFGS: Theory, Convergence, and Implementation},
+  year   = {2026},
+}
+````
+
+---
+
+## License
+
+MIT License
+

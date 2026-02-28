@@ -107,7 +107,8 @@ If you need private support or have sensitive concerns, you can reach out at:
 
 ```
 
-[support@lbfgs-solver-course.org](mailto:support@lbfgs-solver-course.org)
+https://t.me/RuslanSenatorov
+https://www.youtube.com/SENATOROV
 
 ```
 

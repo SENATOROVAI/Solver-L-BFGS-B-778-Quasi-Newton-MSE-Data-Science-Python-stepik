@@ -1,13 +1,16 @@
 import numpy as np
 
 
-def project(x, lower, upper):
-    # Clamp each coordinate into the feasible interval.
+def project(x: np.ndarray, lower: np.ndarray, upper: np.ndarray) -> np.ndarray:
     return np.minimum(np.maximum(x, lower), upper)
 
 
-def projected_gradient(x, g, lower, upper):
-    # Remove gradient components that point outside the feasible box.
+def projected_gradient(
+    x: np.ndarray,
+    g: np.ndarray,
+    lower: np.ndarray,
+    upper: np.ndarray
+) -> np.ndarray:
     pg = g.copy()
     for i in range(len(x)):
         if x[i] <= lower[i] and g[i] > 0:
@@ -17,14 +20,21 @@ def projected_gradient(x, g, lower, upper):
     return pg
 
 
-def generalized_cauchy_point(x, g, lower, upper):
-    # Educational simplification: take a step along the anti-gradient,
-    # then project it back into the feasible region.
+def generalized_cauchy_point(
+    x: np.ndarray,
+    g: np.ndarray,
+    lower: np.ndarray,
+    upper: np.ndarray
+) -> np.ndarray:
     return project(x - g, lower, upper)
 
 
-def free_variable_mask(x, g, lower, upper):
-    # A variable is free if it is not blocked by an active bound.
+def free_variable_mask(
+    x: np.ndarray,
+    g: np.ndarray,
+    lower: np.ndarray,
+    upper: np.ndarray
+) -> np.ndarray:
     mask = np.ones_like(x, dtype=bool)
     for i in range(len(x)):
         if x[i] <= lower[i] and g[i] > 0:
@@ -34,68 +44,71 @@ def free_variable_mask(x, g, lower, upper):
     return mask
 
 
-def two_loop_recursion(g, s_list, y_list):
-    # Standard limited-memory two-loop recursion.
+def two_loop_recursion(
+    g: np.ndarray,
+    s_list: list[np.ndarray],
+    y_list: list[np.ndarray]
+) -> np.ndarray:
     q = g.copy()
     alphas = []
     rhos = []
-    used_pairs = []
-
     for s, y in zip(reversed(s_list), reversed(y_list)):
-        ys = float(np.dot(y, s))
+        ys = np.dot(y, s)
         if ys <= 1e-12:
             continue
         rho = 1.0 / ys
-        alpha = rho * float(np.dot(s, q))
+        alpha = rho * np.dot(s, q)
         q = q - alpha * y
         alphas.append(alpha)
         rhos.append(rho)
-        used_pairs.append((s, y))
 
-    if used_pairs:
-        s_last, y_last = used_pairs[0]
-        yy = float(np.dot(y_last, y_last))
-        gamma = float(np.dot(s_last, y_last)) / yy if yy > 1e-12 else 1.0
+    if s_list:
+        s_last = s_list[-1]
+        y_last = y_list[-1]
+        yy = np.dot(y_last, y_last)
+        gamma = np.dot(s_last, y_last) / yy if yy > 1e-12 else 1.0
     else:
         gamma = 1.0
 
     r = gamma * q
-
-    for (s, y), alpha, rho in zip(reversed(used_pairs), reversed(alphas), reversed(rhos)):
-        beta = rho * float(np.dot(y, r))
+    used_pairs = [(s, y) for s, y in zip(s_list, y_list) if np.dot(y, s) > 1e-12]
+    for (s, y), alpha, rho in zip(used_pairs, reversed(alphas), reversed(rhos)):
+        beta = rho * np.dot(y, r)
         r = r + s * (alpha - beta)
 
     return -r
 
 
-def backtracking_line_search_with_projection(f, x, p, lower, upper, g, alpha=1.0, beta=0.5, c=1e-4):
-    # Projected Armijo backtracking line search.
+def backtracking_line_search_with_projection(
+    f,
+    x: np.ndarray,
+    p: np.ndarray,
+    lower: np.ndarray,
+    upper: np.ndarray,
+    g: np.ndarray,
+    alpha: float = 1.0,
+    beta: float = 0.5,
+    c: float = 1e-4
+) -> float:
     fx = f(x)
     while True:
         trial = project(x + alpha * p, lower, upper)
-        if f(trial) <= fx + c * alpha * float(np.dot(g, p)):
+        if f(trial) <= fx + c * alpha * np.dot(g, p):
             return alpha
         alpha *= beta
         if alpha < 1e-12:
             return alpha
 
 
-def lbfgsb(x0, m=5, tol=1e-8, max_iter=100):
-    lower = np.array([0.0, 0.0], dtype=float)
-    upper = np.array([1.0, 2.0], dtype=float)
+def lbfgsb(f, grad_f, x0, lower, upper, m=10, tol=1e-6, max_iter=200):
+    x = np.array(x0, dtype=float)
+    lower = np.array(lower, dtype=float)
+    upper = np.array(upper, dtype=float)
+    x = project(x, lower, upper)
 
-    def f(x):
-        return (x[0] - 3.0) ** 2 + (x[1] - 0.5) ** 2
-
-    def grad_f(x):
-        return np.array([
-            2.0 * (x[0] - 3.0),
-            2.0 * (x[1] - 0.5)
-        ])
-
-    x = project(np.array(x0, dtype=float), lower, upper)
     s_list = []
     y_list = []
+    history = [x.copy()]
 
     for _ in range(max_iter):
         g = grad_f(x)
@@ -122,7 +135,8 @@ def lbfgsb(x0, m=5, tol=1e-8, max_iter=100):
         g_new = grad_f(x_new)
         s = x_new - x
         y = g_new - g
-        ys = float(np.dot(y, s))
+        ys = np.dot(y, s)
+
         if ys > 1e-12:
             s_list.append(s)
             y_list.append(y)
@@ -131,14 +145,34 @@ def lbfgsb(x0, m=5, tol=1e-8, max_iter=100):
                 y_list.pop(0)
 
         x = x_new
+        history.append(x.copy())
 
-    return x, f(x)
+    return x, f(x), history
 
 
 def main() -> None:
     x1, x2 = map(float, input().split())
-    x_star, f_star = lbfgsb([x1, x2])
-    print(f"{x_star[0]:.6f} {x_star[1]:.6f} {f_star:.6f}")
+
+    def f(x: np.ndarray) -> float:
+        return (x[0] - 3.0) ** 2 + (x[1] - 0.5) ** 2
+
+    def grad_f(x: np.ndarray) -> np.ndarray:
+        return np.array([
+            2.0 * (x[0] - 3.0),
+            2.0 * (x[1] - 0.5)
+        ])
+
+    x_star, f_star, history = lbfgsb(
+        f=f,
+        grad_f=grad_f,
+        x0=[x1, x2],
+        lower=[0.0, 0.0],
+        upper=[1.0, 2.0],
+        m=5,
+        tol=1e-8,
+        max_iter=100
+    )
+    print(f"{x_star[0]:.6f} {x_star[1]:.6f} {f_star:.6f} {len(history) - 1}")
 
 
 if __name__ == '__main__':
